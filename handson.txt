@@ -1,0 +1,80 @@
+Knoten anlegen
+	cd D:\master_pse\m3_datenbanken\cr_uni
+
+	cockroach start --insecure --listen-addr=localhost:26257 --http-addr=localhost:8080 --join=localhost:26258,localhost:26259 --store=node1
+	cockroach start --insecure --listen-addr=localhost:26258 --http-addr=localhost:8081 --join=localhost:26257,localhost:26259 --store=node2
+	cockroach start --insecure --listen-addr=localhost:26259 --http-addr=localhost:8082 --join=localhost:26257,localhost:26258 --store=node3
+	cockroach start --insecure --listen-addr=localhost:26260 --http-addr=localhost:8083 --join=localhost:26257,localhost:26258,localhost:26259 --store=node4
+	cockroach start --insecure --listen-addr=localhost:26261 --http-addr=localhost:8084 --join=localhost:26257,localhost:26258,localhost:26260 --store=node5
+
+
+Initialisieren
+	cockroach init --insecure
+
+
+Daten laden
+	cockroach workload init movr
+	cockroach workload init startrek
+
+	cockroach sql --insecure
+
+
+Daten navigieren und anzeigen
+	show databases;
+	use movr;
+	show tables;
+	select*from users limit(10);
+	select*from startrek.episodes limit(10);
+	SHOW RANGES FROM TABLE users;
+
+	select episodes.title, episodes.season, quotes.characters, quotes.quote from episodes inner join quotes on episodes.id=quotes.episode order by characters limit(3);
+
+                                     start_key                                     |                                     end_key                                      | range_id | range_size_mb | lease_holder | lease_holder_locality | replicas | replica_localities
+-----------------------------------------------------------------------------------+----------------------------------------------------------------------------------+----------+---------------+--------------+-----------------------+----------+---------------------
+  NULL                                                                             | /"amsterdam"/"\xb333333@\x00\x80\x00\x00\x00\x00\x00\x00#"                       |       33 |      0.000116 |            2 |                       | {1,2,3}  | {"","",""}
+  /"amsterdam"/"\xb333333@\x00\x80\x00\x00\x00\x00\x00\x00#"                       | /"boston"/"333333D\x00\x80\x00\x00\x00\x00\x00\x00\n"                            |       43 |      0.000886 |            3 |                       | {1,2,3}  | {"","",""}
+  /"boston"/"333333D\x00\x80\x00\x00\x00\x00\x00\x00\n"                            | /"los angeles"/"\x99\x99\x99\x99\x99\x99H\x00\x80\x00\x00\x00\x00\x00\x00\x1e"   |       42 |       0.00046 |            3 |                       | {1,2,3}  | {"","",""}
+  /"los angeles"/"\x99\x99\x99\x99\x99\x99H\x00\x80\x00\x00\x00\x00\x00\x00\x1e"   | /"new york"/"\x19\x99\x99\x99\x99\x99J\x00\x80\x00\x00\x00\x00\x00\x00\x05"      |       41 |      0.001015 |            3 |                       | {1,2,3}  | {"","",""}
+  /"new york"/"\x19\x99\x99\x99\x99\x99J\x00\x80\x00\x00\x00\x00\x00\x00\x05"      | /"paris"/"\xcc\xcc\xcc\xcc\xcc\xcc@\x00\x80\x00\x00\x00\x00\x00\x00("            |       53 |      0.000214 |            3 |                       | {1,2,3}  | {"","",""}
+  /"paris"/"\xcc\xcc\xcc\xcc\xcc\xcc@\x00\x80\x00\x00\x00\x00\x00\x00("            | /"san francisco"/"\x80\x00\x00\x00\x00\x00@\x00\x80\x00\x00\x00\x00\x00\x00\x19" |       39 |      0.001299 |            3 |                       | {1,2,3}  | {"","",""}
+  /"san francisco"/"\x80\x00\x00\x00\x00\x00@\x00\x80\x00\x00\x00\x00\x00\x00\x19" | /"seattle"/"ffffffH\x00\x80\x00\x00\x00\x00\x00\x00\x14"                         |       44 |      0.000669 |            2 |                       | {1,2,3}  | {"","",""}
+  /"seattle"/"ffffffH\x00\x80\x00\x00\x00\x00\x00\x00\x14"                         | /"washington dc"/"L\xcc\xcc\xcc\xcc\xccL\x00\x80\x00\x00\x00\x00\x00\x00\x0f"    |       40 |      0.000671 |            1 |                       | {1,2,3}  | {"","",""}
+  /"washington dc"/"L\xcc\xcc\xcc\xcc\xccL\x00\x80\x00\x00\x00\x00\x00\x00\x0f"    | NULL                                                                             |       63 |      0.000231 |            2 |                       | {1,2,3}  | {"","",""}
+
+
+	create user  maxroach;
+	GRANT ALL ON DATABASE bank to maxroach;
+
+	create user  testuser;
+	grant select on database startrek to testuser;
+	grant select on startrek.epsiodes to testuser;
+
+	cockroach sql --insecure --host=localhost:26258 --user='testuser' --database='startrek';
+
+
+CRUD
+	create database testdb;
+	create table persons (ID int not null primary key, lasName varchar(255) not null, firstName varchar(255), age int);
+	insert into persons values (1, 'bermel', 'marvin', 24),(2,'mustermann','max', 99), (20,'Mueller','Josef',30);
+	select * from persons;
+	update persons set firstname ='fabian' where age < 31;
+	delete from persons where firstname = 'fabian';
+	drop table persons;
+	drop database testdb;
+	use defaultdb;
+	drop database testdb;
+
+
+Clusteränderungen
+	SET CLUSTER SETTING server.time_until_store_dead = '1m15s';
+	ALTER DATABASE movr CONFIGURE ZONE USING num_replicas = 5;
+
+
+Verhalten
+	cockroach node status --all --insecure
+
+ id |     address     |   sql_address   |  build  |            started_at            |            updated_at            | locality | is_available | is_live | replicas_leaders | replicas_leaseholders | ranges | ranges_unavailable | ranges_underreplicated | live_bytes | key_bytes | value_bytes | intent_bytes | system_bytes | gossiped_replicas | is_decommissioning | is_draining
+-----+-----------------+-----------------+---------+----------------------------------+----------------------------------+----------+--------------+---------+------------------+-----------------------+--------+--------------------+------------------------+------------+-----------+-------------+--------------+--------------+-------------------+--------------------+--------------
+   1 | localhost:26257 | localhost:26257 | v20.1.8 | 2020-11-21 10:02:19.461179+00:00 | 2020-11-21 10:12:31.531658+00:00 |          |         true |    true |               25 |                    25 |     65 |                  0 |                      0 |    6976767 |    396796 |     6659101 |            0 |        28182 |        65         |              false |    false
+   2 | localhost:26258 | localhost:26258 | v20.1.8 | 2020-11-21 10:02:21.125979+00:00 | 2020-11-21 10:12:33.15283+00:00  |          |         true |    true |               17 |                    17 |     65 |                  0 |                      0 |    7009841 |    396796 |     6692175 |            0 |        28182 |        65         |              false |    false
+   3 | localhost:26259 | localhost:26259 | v20.1.8 | 2020-11-21 10:02:21.33475+00:00  | 2020-11-21 10:12:28.86074+00:00  |          |         true |    true |               23 |                    23 |     65 |                  0 |                      0 |    7042915 |    396796 |     6725249 |            0 |        28182 |        65         |              false |    false
